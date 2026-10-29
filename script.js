@@ -1,4 +1,4 @@
-/* Idee Showroom - скрипты: герой из плит, шапка, меню, навеска кадров, форма. */
+/* Idee Showroom - скрипты: герой из плит, шапка, меню, навеска кадров, лента, форма. */
 (function () {
   'use strict';
   var reduce = window.matchMedia('(prefers-reduced-motion: reduce)').matches;
@@ -7,14 +7,18 @@
   var media = document.getElementById('heroMedia');
   var tilesBox = document.getElementById('tiles');
   var dim = document.getElementById('heroDim');
+  var mobile = function () { return window.innerWidth <= 900; };
 
-  /* Герой: фасад одевается плитами 1200x600 снизу вверх */
-  var lastW = 0, built = false;
-  function buildTiles(animate) {
+  /* Герой: фасад одевается плитами 1200x600 снизу вверх. Только интро, дальше работает <picture>. */
+  function skipIntro() {
+    hero.classList.add('on', 'set');
+  }
+  function buildTiles() {
     var W = media.clientWidth, H = media.clientHeight;
-    if (!W || !H) return;
-    var src = media.dataset.src;
-    var iw = +media.dataset.w, ih = +media.dataset.h;
+    if (!W || !H) return skipIntro();
+    var m = mobile();
+    var src = m ? media.dataset.srcM : media.dataset.src;
+    var iw = +(m ? media.dataset.wm : media.dataset.w), ih = +(m ? media.dataset.hm : media.dataset.h);
     var scale = Math.max(W / iw, H / ih);
     var bw = Math.ceil(iw * scale), bh = Math.ceil(ih * scale);
     var ox = (W - bw) / 2, oy = (H - bh) * 0.5;
@@ -27,7 +31,7 @@
       for (var c = 0; c < cols; c++) {
         var left = Math.round(c * tw), right = Math.round((c + 1) * tw);
         var t = document.createElement('div');
-        t.className = 'tile' + (animate ? '' : ' on');
+        t.className = 'tile';
         t.style.left = left + 'px';
         t.style.top = top + 'px';
         t.style.width = (right - left) + 'px';
@@ -35,14 +39,11 @@
         t.style.backgroundImage = 'url(' + src + ')';
         t.style.backgroundSize = bw + 'px ' + bh + 'px';
         t.style.backgroundPosition = (ox - left) + 'px ' + (oy - top) + 'px';
-        if (animate) t.style.transitionDelay = ((rows - 1 - r) * 85 + c * 12) + 'ms';
+        t.style.transitionDelay = ((rows - 1 - r) * 85 + c * 12) + 'ms';
         frag.appendChild(t);
       }
     }
-    tilesBox.innerHTML = '';
     tilesBox.appendChild(frag);
-    lastW = W;
-    if (!animate) { hero.classList.add('on', 'set'); return; }
     var img = new Image();
     img.src = src;
     var go = function () {
@@ -53,24 +54,26 @@
           setTimeout(function () { hero.classList.add('on'); }, (rows - 1) * 85 + 250);
           setTimeout(function () {
             hero.classList.add('set');
-            for (var j = 0; j < all.length; j++) all[j].style.transitionDelay = '';
+            setTimeout(function () { tilesBox.innerHTML = ''; }, 500);
           }, rows * 85 + 800);
         });
       });
     };
     if (img.decode) img.decode().then(go, go); else img.onload = go;
   }
-  buildTiles(!reduce);
-  built = true;
-  var rt;
-  window.addEventListener('resize', function () {
-    clearTimeout(rt);
-    rt = setTimeout(function () {
-      if (Math.abs(media.clientWidth - lastW) > 2) buildTiles(false);
-    }, 150);
-  });
+  /* Интро пропускаем при хэше в адресе и если страница уже прокручена (переход из рекламы по якорю). */
+  if (reduce || location.hash || (window.scrollY || window.pageYOffset) > 80) skipIntro();
+  else buildTiles();
 
-  /* Скролл: шапка и отход героя */
+  /* Шапка: тема по секции под ней, отход героя */
+  var themed = [].slice.call(document.querySelectorAll('[data-hdr]'));
+  var zones = [];
+  function measure() {
+    zones = themed.map(function (el) {
+      return { top: el.getBoundingClientRect().top + (window.scrollY || window.pageYOffset), light: el.dataset.hdr === 'light' };
+    });
+  }
+  measure();
   var ticking = false;
   function onScroll() {
     if (ticking) return;
@@ -78,18 +81,35 @@
     requestAnimationFrame(function () {
       var y = window.scrollY || window.pageYOffset;
       var hh = hero.offsetHeight || 1;
+      var probe = y + 40;
+      var light = false;
+      for (var i = 0; i < zones.length; i++) if (zones[i].top <= probe) light = zones[i].light;
       hdr.classList.toggle('solid', y > 40);
-      hdr.classList.toggle('light', y > hh - 80);
-      if (y < hh && !reduce && window.innerWidth > 900) {
+      hdr.classList.toggle('light', light);
+      if (y < hh && !reduce && !mobile()) {
         var p = Math.min(1, y / hh);
         media.style.transform = 'translateY(' + (p * 36) + 'px)';
         dim.style.opacity = 1 + p * 0.9;
       }
+      /* Липкая панель: после половины героя, прячется на форме */
+      var form = document.getElementById('lead');
+      var ft = form ? form.getBoundingClientRect().top : Infinity;
+      document.body.classList.toggle('sticky-on', y > hh * 0.55 && ft > window.innerHeight * 0.6);
       ticking = false;
     });
   }
   window.addEventListener('scroll', onScroll, { passive: true });
+  window.addEventListener('load', function () { measure(); onScroll(); });
   onScroll();
+
+  /* Пересчёт - только при смене ширины (iOS шлёт resize при сворачивании адресной строки) */
+  var lastW = window.innerWidth, rt;
+  window.addEventListener('resize', function () {
+    if (window.innerWidth === lastW) return;
+    lastW = window.innerWidth;
+    clearTimeout(rt);
+    rt = setTimeout(function () { measure(); onScroll(); updateStrips(); }, 150);
+  });
 
   /* Меню */
   var burger = document.getElementById('burger');
@@ -123,16 +143,48 @@
     hang.forEach(function (el) { el.classList.add('in'); });
   }
 
-  /* Форма: заявка уходит в WhatsApp с текстом */
+  /* Ленты со стрелками: шаг в одну карточку, края гаснут, без прокрутки стрелки спрятаны */
+  var navs = [].slice.call(document.querySelectorAll('.strip-nav'));
+  function stripState(nav) {
+    var strip = document.getElementById(nav.dataset.strip);
+    if (!strip) return;
+    var max = strip.scrollWidth - strip.clientWidth;
+    var off = max <= 1;
+    nav.classList.toggle('is-off', off);
+    var btns = nav.querySelectorAll('.strip-btn');
+    btns[0].disabled = off || strip.scrollLeft <= 1;
+    btns[1].disabled = off || strip.scrollLeft >= max - 1;
+  }
+  function updateStrips() { navs.forEach(stripState); }
+  navs.forEach(function (nav) {
+    var strip = document.getElementById(nav.dataset.strip);
+    if (!strip) return;
+    nav.addEventListener('click', function (e) {
+      var b = e.target.closest('.strip-btn');
+      if (!b || b.disabled) return;
+      var card = strip.firstElementChild;
+      var w = card.getBoundingClientRect().width;
+      var gap = parseFloat(getComputedStyle(strip).columnGap) || 0;
+      strip.scrollBy({ left: (w + gap) * +b.dataset.dir, behavior: reduce ? 'auto' : 'smooth' });
+    });
+    strip.addEventListener('scroll', function () { stripState(nav); }, { passive: true });
+    stripState(nav);
+  });
+  window.addEventListener('load', updateStrips);
+
+  /* Форма: заявка уходит в WhatsApp с текстом (совместимо с LeadBot: настоящий submit, window.open сразу) */
   var form = document.getElementById('lead');
   if (form) {
+    var err = document.getElementById('phoneErr');
+    var ok = document.getElementById('formOk');
     form.addEventListener('submit', function (e) {
       e.preventDefault();
+      if (form.company && form.company.value) return;
       var phone = form.phone.value.trim();
       if (phone.replace(/\D/g, '').length < 10) {
-        form.phone.focus();
         form.phone.setAttribute('aria-invalid', 'true');
-        form.phone.style.borderColor = '#b8503e';
+        err.hidden = false;
+        form.phone.focus();
         return;
       }
       var name = form.name.value.trim();
@@ -142,10 +194,11 @@
         '\nТелефон: ' + phone +
         (obj ? '\nОбъект: ' + obj : '');
       window.open('https://wa.me/77010001011?text=' + encodeURIComponent(text), '_blank', 'noopener');
+      ok.hidden = false;
     });
     form.phone.addEventListener('input', function () {
-      form.phone.style.borderColor = '';
       form.phone.removeAttribute('aria-invalid');
+      err.hidden = true;
     });
   }
 })();
