@@ -12,6 +12,7 @@
   /* Герой: фасад одевается плитами 1200x600 снизу вверх. Только интро, дальше работает <picture>. */
   function skipIntro() {
     hero.classList.add('on', 'set');
+    startSlides();
   }
   function buildTiles() {
     var W = media.clientWidth, H = media.clientHeight;
@@ -54,6 +55,7 @@
           setTimeout(function () { hero.classList.add('on'); }, (rows - 1) * 85 + 250);
           setTimeout(function () {
             hero.classList.add('set');
+            startSlides();
             setTimeout(function () { tilesBox.innerHTML = ''; }, 500);
           }, rows * 85 + 800);
         });
@@ -61,6 +63,49 @@
     };
     if (img.decode) img.decode().then(go, go); else img.onload = go;
   }
+  /* Карусель объектов в герое: Bay Plaza -> СВМДА -> Dostyq300. Смена раз в 6 с, пауза вне экрана и на скрытой вкладке. */
+  var slides = [].slice.call(document.querySelectorAll('#heroSlides .hero-pic'));
+  var bars = [].slice.call(document.querySelectorAll('.hero-bars i'));
+  var ctrl = document.querySelector('.hero-ctrl');
+  var cap = document.getElementById('heroCap');
+  var SLIDE = 6000, cur = 0, timer = null, started = false, heroVisible = true;
+  function showSlide(n) {
+    cur = (n + slides.length) % slides.length;
+    slides.forEach(function (sl, i) { sl.classList.toggle('is-on', i === cur); });
+    bars.forEach(function (b, i) {
+      b.classList.remove('is-on');
+      b.classList.toggle('is-done', i < cur);
+    });
+    void ctrl.offsetWidth;
+    bars[cur].classList.add('is-on');
+    cap.innerHTML = '<b>' + slides[cur].dataset.cap + '</b><span>' + slides[cur].dataset.sub + '</span>';
+  }
+  function schedule() {
+    clearTimeout(timer);
+    var run = started && !reduce && heroVisible && !document.hidden;
+    if (run && ctrl.classList.contains('is-paused')) {
+      bars[cur].classList.remove('is-on');
+      void ctrl.offsetWidth;
+      bars[cur].classList.add('is-on');
+    }
+    ctrl.classList.toggle('is-paused', !run);
+    if (run) timer = setTimeout(function () { showSlide(cur + 1); schedule(); }, SLIDE);
+  }
+  function startSlides() {
+    if (started) return;
+    started = true;
+    ctrl.style.setProperty('--slide', SLIDE + 'ms');
+    showSlide(0);
+    schedule();
+  }
+  [].forEach.call(document.querySelectorAll('[data-hdir]'), function (btn) {
+    btn.addEventListener('click', function () { showSlide(cur + +btn.dataset.hdir); schedule(); });
+  });
+  document.addEventListener('visibilitychange', schedule);
+  if ('IntersectionObserver' in window) {
+    new IntersectionObserver(function (en) { heroVisible = en[0].isIntersecting; schedule(); }).observe(hero);
+  }
+
   /* Интро пропускаем при хэше в адресе и если страница уже прокручена (переход из рекламы по якорю). */
   if (reduce || location.hash || (window.scrollY || window.pageYOffset) > 80) skipIntro();
   else buildTiles();
