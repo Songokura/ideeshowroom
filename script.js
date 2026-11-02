@@ -63,7 +63,7 @@
     };
     if (img.decode) img.decode().then(go, go); else img.onload = go;
   }
-  /* Карусель объектов в герое: Bay Plaza -> СВМДА -> Dostyq300. Смена раз в 6 с, пауза вне экрана и на скрытой вкладке. */
+  /* Карусель объектов в герое (Idee и House Facade). Смена раз в 6 с, пауза вне экрана и на скрытой вкладке. */
   var slides = [].slice.call(document.querySelectorAll('#heroSlides .hero-pic'));
   var bars = [].slice.call(document.querySelectorAll('.hero-bars i'));
   var ctrl = document.querySelector('.hero-ctrl');
