@@ -188,6 +188,20 @@
     hang.forEach(function (el) { el.classList.add('in'); });
   }
 
+  /* Видео в галерее объектов: немая петля, грузится и играет только в кадре */
+  var gvids = [].slice.call(document.querySelectorAll('.gal-vid video'));
+  if (gvids.length && 'IntersectionObserver' in window && !reduce) {
+    gvids.forEach(function (v) { v.addEventListener('playing', function () { v.classList.add('is-live'); }); });
+    var gio = new IntersectionObserver(function (en) {
+      en.forEach(function (e) {
+        var v = e.target;
+        if (e.isIntersecting) { if (!v.src) v.src = v.dataset.src; var p = v.play(); if (p && p.catch) p.catch(function () {}); }
+        else if (v.src) v.pause();
+      });
+    }, { threshold: 0.4 });
+    gvids.forEach(function (v) { gio.observe(v); });
+  }
+
   /* Ленты со стрелками: шаг в одну карточку, края гаснут, без прокрутки стрелки спрятаны */
   var navs = [].slice.call(document.querySelectorAll('.strip-nav'));
   function stripState(nav) {
