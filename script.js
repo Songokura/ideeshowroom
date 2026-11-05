@@ -1,6 +1,19 @@
 /* Idee Showroom - скрипты: герой из плит, шапка, меню, навеска кадров, лента, форма. */
 (function () {
   'use strict';
+  /* Конверсии Google Ads: звонок, контакт (WhatsApp, Telegram, почта), отправка формы */
+  function conv(key) {
+    var id = (window.IDEE_CONV || {})[key];
+    if (!id || typeof window.gtag !== 'function') return;
+    window.gtag('event', 'conversion', { send_to: id, value: 1.0, currency: 'USD', transport_type: 'beacon' });
+  }
+  document.addEventListener('click', function (e) {
+    var a = e.target.closest ? e.target.closest('a[href]') : null;
+    if (!a) return;
+    var h = a.getAttribute('href') || '';
+    if (h.indexOf('tel:') === 0) conv('phone');
+    else if (h.indexOf('wa.me') > -1 || h.indexOf('t.me/') > -1 || h.indexOf('mailto:') === 0) conv('contact');
+  }, true);
   var reduce = window.matchMedia('(prefers-reduced-motion: reduce)').matches;
   var hdr = document.getElementById('hdr');
   var hero = document.getElementById('hero');
@@ -253,6 +266,7 @@
         '\nТелефон: ' + phone +
         (obj ? '\nОбъект: ' + obj : '');
       window.open('https://wa.me/77010001011?text=' + encodeURIComponent(text), '_blank', 'noopener');
+      conv('form');
       ok.hidden = false;
     });
     form.phone.addEventListener('input', function () {
