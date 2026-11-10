@@ -215,6 +215,46 @@
     gvids.forEach(function (v) { gio.observe(v); });
   }
 
+  /* Видеоотзывы: немая петля в кадре, полный ролик со звуком по клику в модалке */
+  var rvVids = [].slice.call(document.querySelectorAll('.rv-play video'));
+  if (rvVids.length && 'IntersectionObserver' in window && !reduce) {
+    rvVids.forEach(function (v) { v.addEventListener('playing', function () { v.classList.add('is-live'); }); });
+    var rio = new IntersectionObserver(function (en) {
+      en.forEach(function (e) {
+        var v = e.target;
+        if (e.isIntersecting) { if (!v.src) v.src = v.dataset.src; var p = v.play(); if (p && p.catch) p.catch(function () {}); }
+        else if (v.src) v.pause();
+      });
+    }, { threshold: 0.55 });
+    rvVids.forEach(function (v) { rio.observe(v); });
+  }
+  var rvModal = document.getElementById('rvModal');
+  if (rvModal) {
+    var rvPlayer = rvModal.querySelector('video');
+    var rvClose = rvModal.querySelector('.rv-close');
+    var rvLast = null;
+    function rvShut() {
+      if (!rvModal.classList.contains('is-open')) return;
+      rvModal.classList.remove('is-open');
+      document.body.classList.remove('rv-lock');
+      rvPlayer.pause(); rvPlayer.removeAttribute('src'); rvPlayer.load();
+      if (rvLast) rvLast.focus();
+    }
+    document.addEventListener('click', function (e) {
+      var b = e.target.closest('.rv-play');
+      if (!b) return;
+      rvLast = b;
+      rvPlayer.src = b.dataset.video;
+      rvModal.classList.add('is-open');
+      document.body.classList.add('rv-lock');
+      var p = rvPlayer.play(); if (p && p.catch) p.catch(function () {});
+      rvClose.focus();
+    });
+    rvClose.addEventListener('click', rvShut);
+    rvModal.addEventListener('click', function (e) { if (e.target === rvModal) rvShut(); });
+    document.addEventListener('keydown', function (e) { if (e.key === 'Escape') rvShut(); });
+  }
+
   /* Ленты со стрелками: шаг в одну карточку, края гаснут, без прокрутки стрелки спрятаны */
   var navs = [].slice.call(document.querySelectorAll('.strip-nav'));
   function stripState(nav) {
